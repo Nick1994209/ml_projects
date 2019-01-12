@@ -1,0 +1,16 @@
+# python
+__pycache__
+.ipynb_checkpoints
+catboost_info
+
+# IDLE
+.idea
+get_semantic_keras-Copy1.ipynb
+get_semantic_keras.ipynb
+poldata.README.2.0
+prepare_data.py
+prepare_data.sh
+review_polarity.tar.gz
+semantic.csv
+semantic.tsv
+txt_sentoken/

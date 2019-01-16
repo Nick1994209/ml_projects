@@ -218,6 +218,7 @@ class Log1Transformer(BaseEstimator, TransformerMixin):
     --------
     >>> example_skewed_values = np.array([1, 2, 2, 2, 3, 4, 5])
     >>> log1_transformer = Log1Transformer()
+    
     >>> norm_distributed_values = log1_transformer.transform(example_skewed_values)
     >>> close_example_skewed_values = log1_transformer.re_transform(norm_distributed_values)
     close_example_skewed_values and example_skewed_values are so close
@@ -226,7 +227,12 @@ class Log1Transformer(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        X = as_float_array(X, copy=True)
+        try:
+            X = as_float_array(X, copy=True)
+        except ValueError as e:
+            if isinstance(df, pd.DataFrame):
+                print(get_count_nan(df, df.columns))
+            raise e
         return np.log1p(X)
 
     @staticmethod
@@ -235,3 +241,8 @@ class Log1Transformer(BaseEstimator, TransformerMixin):
         transform value to base view
         """
         return np.math.e ** transformed_X - 1
+    
+    
+def get_columns_correlations(df: pd.DataFrame) -> pd.core.series.Series:
+    corrmat = df.corr()
+    return corrmat.unstack().sort_values(ascending=False).drop_duplicates()

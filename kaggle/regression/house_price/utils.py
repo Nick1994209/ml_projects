@@ -1,10 +1,13 @@
-from typing import Union, List
+from typing import Dict, List, Tuple, Union
 
-import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import StandardScaler
+import numpy as np
 import pandas as pd
 import seaborn as sns
+from scipy.stats import norm, probplot, skew
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.preprocessing import StandardScaler
+from sklearn.utils import as_float_array
 
 
 def to_categorical(df: pd.DataFrame, columns: List[str]) -> pd.DataFrame:
@@ -128,8 +131,18 @@ def get_count_nan(df: pd.DataFrame, columns: Union[List[str], str]) -> None:
         column: df[column].isna().sum()
         for column in columns
     }
-#     s = df[column].isna().sum()
-#     assert df[column].isna().sum() == 0, 'count not nan values %s' % s
+
+
+def delete_abroad_elements(df: pd.DataFrame, columns: Union[List[str], str]) -> pd.DataFrame:
+    df = df.copy()
+    
+    columns = columns if isinstance(columns, list) else [columns]
+    for column in columns:
+        float_values = series_to_float(df[column])
+        abroad_elements = get_abroad_values(float_values)
+        df = df.drop(df[abroad_elements].index, axis=0)
+
+    return df
 
 
 def series_to_float(array: pd.Series) -> np.ndarray:
@@ -157,3 +170,68 @@ def get_abroad_values(array: np.ndarray, tresh_hold: int = 4) -> np.ndarray:
     else:
         scaled = StandardScaler().fit_transform(array)
     return ((scaled > tresh_hold) | (scaled < -1 * tresh_hold))
+
+
+def get_columns_with_count_abroad_elements(df: pd.DataFrame) -> Dict[str, int]:
+    abroad_columns = {}
+    for column in df.columns:
+        float_values = series_to_float(df[column].dropna())
+        is_abroad_values = get_abroad_values(float_values)
+        count_abroad_elements = sum(is_abroad_values)
+        if count_abroad_elements:
+            abroad_columns[column] = count_abroad_elements
+    return abroad_columns
+
+
+def get_skewed_columns(df: pd.DataFrame, skewed_threshold: float = 0.7) -> List[str]:
+    # Плсмльотм на перекошенные графики
+    numeric_feats = df.dtypes[df.dtypes != "object"].index
+    skewed_feats = df[numeric_feats].apply(lambda x: skew(x.dropna())) # compute skewness
+
+    skew_columns = df[numeric_feats].skew()
+    return skew_columns[skew_columns > skewed_threshold].sort_values(ascending=False).index
+
+
+def draw_skewed_data(df: pd.DataFrame, count_columns: int = 2, figsize: Tuple[int] = (15, 30)) -> None:
+    plt.figure(num=len(df.columns), figsize=figsize)
+
+    count_rows = len(df.columns) // count_columns + len(df.columns) % count_columns
+    for index, column in enumerate(df.columns):
+        plt.subplot(count_rows, count_columns, index + 1)
+
+        column_values = df[column].dropna()
+
+        sns.distplot(column_values, fit=norm);
+        
+        plt.ylabel('Frequency')
+        mu, sigma = norm.fit(column_values)
+        plt.xlabel('%s distribution; (mu=%.2f, sigma=%.3f)' % (column, mu, sigma))
+        plt.tight_layout()
+        
+
+class Log1Transformer(BaseEstimator, TransformerMixin):
+    """
+    Tranforme skewed feature for getting norm distribution
+    transofrm with np.log1p
+    
+    Examples
+    --------
+    >>> example_skewed_values = np.array([1, 2, 2, 2, 3, 4, 5])
+    >>> log1_transformer = Log1Transformer()
+    >>> norm_distributed_values = log1_transformer.transform(example_skewed_values)
+    >>> close_example_skewed_values = log1_transformer.re_transform(norm_distributed_values)
+    close_example_skewed_values and example_skewed_values are so close
+    """
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X = as_float_array(X, copy=True)
+        return np.log1p(X)
+
+    @staticmethod
+    def re_transform(transformed_X):
+        """
+        transform value to base view
+        """
+        return np.math.e ** transformed_X - 1

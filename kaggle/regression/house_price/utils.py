@@ -246,3 +246,20 @@ class Log1Transformer(BaseEstimator, TransformerMixin):
 def get_columns_correlations(df: pd.DataFrame) -> pd.core.series.Series:
     corrmat = df.corr()
     return corrmat.unstack().sort_values(ascending=False).drop_duplicates()
+
+
+def get_column_transformer_feature_names(column_transformer: ColumnTransformer) -> List[str]:    
+    names = []
+    # last transformer is ColumnTransformer's 'remainder'
+    for _, transformer, feature_names in column_transformer.transformers_[:-1]:
+        if isinstance(transformer, Pipeline): 
+            transformer = transformer.steps[-1][1]
+            
+        if hasattr(transformer, 'get_feature_names'):
+            feature_names = transformer.get_feature_names()
+
+        if isinstance(names, str):
+            feature_names = [feature_names]
+            
+        names.extend(feature_names)
+    return names

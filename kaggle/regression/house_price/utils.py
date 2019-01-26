@@ -6,6 +6,8 @@ import pandas as pd
 import seaborn as sns
 from scipy.stats import norm, probplot, skew
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import as_float_array
 
@@ -230,8 +232,8 @@ class Log1Transformer(BaseEstimator, TransformerMixin):
         try:
             X = as_float_array(X, copy=True)
         except ValueError as e:
-            if isinstance(df, pd.DataFrame):
-                print(get_count_nan(df, df.columns))
+            if isinstance(X, pd.DataFrame):
+                print(get_count_nan(X, X.columns))
             raise e
         return np.log1p(X)
 
@@ -245,7 +247,7 @@ class Log1Transformer(BaseEstimator, TransformerMixin):
     
 def get_columns_correlations(df: pd.DataFrame) -> pd.core.series.Series:
     corrmat = df.corr()
-    return corrmat.unstack().sort_values(ascending=False).drop_duplicates()
+    return corrmat.unstack().drop_duplicates().map(abs).sort_values(ascending=False).head(5)
 
 
 def get_column_transformer_feature_names(column_transformer: ColumnTransformer) -> List[str]:    
